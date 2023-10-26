@@ -1,4 +1,9 @@
 #include "systemcalls.h"
+#include <stdlib.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <syslog.h>
+#include <fcntl.h>
 
 /**
  * @param cmd the command to execute with system()
@@ -16,6 +21,13 @@ bool do_system(const char *cmd)
  *   and return a boolean true if the system() call completed with success
  *   or false() if it returned a failure
 */
+    openlog(NULL,0,LOG_USER);
+    int rt = system(cmd);
+    if(rt == -1)
+    {
+    	syslog(LOG_ERR, "child process could not be created, or its status could not be retrieved");
+	return false;
+    }
 
     return true;
 }
@@ -58,9 +70,42 @@ bool do_exec(int count, ...)
  *   as second argument to the execv() command.
  *
 */
-
     va_end(args);
-
+    openlog(NULL,0,LOG_USER);
+    pid_t pid = fork();
+    
+    //If error on fork
+    if(pid == -1)
+    {
+    	syslog(LOG_ERR, "fork failed");
+    	return false;
+    }
+    else if(pid ==0)
+    {
+    	//Child action
+    	execv(command[0], command);
+    	syslog(LOG_ERR, "execv failed");
+    	
+    	//If it reached here, the execv failed for the child
+    	exit(-1);
+    }
+    
+    int status;
+    
+    if(waitpid(pid, &status, 0) == -1)
+    	return false;
+    
+    //if forked process exited normally
+    if (WIFEXITED(status))
+    {
+	//exit(-1) 8 lowest bits is 255
+    	if(WEXITSTATUS(status) == 0xFF)
+    	    return false;
+    }
+    
+    //if not successful test command
+    if(status != 0)
+    	return false;
     return true;
 }
 
@@ -94,6 +139,53 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
 */
 
     va_end(args);
+    openlog(NULL,0,LOG_USER);
+    int fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+    
+    //If there is an error creating the filename
+    if(fd == -1)
+    {
+	syslog(LOG_ERR, "Failed to make file!"); 
+	return false;
+    }
+    
+    pid_t pid = fork();
+    
+    //If error on fork
+    if(pid == -1)
+    {
+    	syslog(LOG_ERR, "fork failed");
+    	return false;
+    }
+    else if(pid ==0)
+    {
+    	//Redirect stdout(fd=1) to the file
+    	if(dup2(fd, 1) == -1)
+    	{
+	    syslog(LOG_ERR, "Failed to redirect stdout!"); 
+	    return false;
+    	}
 
+    	//Child action
+    	execv(command[0], command);
+    	syslog(LOG_ERR, "execv failed");
+    	
+    	//If it reached here, the execv failed for the child
+    	exit(-1);
+    }
+    
+    int status;
+    
+    if(waitpid(pid, &status, 0) == -1)
+    	return false;
+    
+    //if forked process exited normally
+    if (WIFEXITED(status))
+    {
+	//exit(-1) 8 lowest bits is 255
+    	if(WEXITSTATUS(status) == 0xFF)
+    	    return false;
+    }
+    
     return true;
 }
