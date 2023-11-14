@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # If is anything other than 2 args, exit
 if [ $# -ne 2 ] 
