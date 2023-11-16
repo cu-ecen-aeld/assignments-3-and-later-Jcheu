@@ -17,7 +17,7 @@ void* threadfunc(void* thread_param)
     ThreadData* thread_func_args = (ThreadData*) thread_param;
     
     //Wait to obtain the lock
-    usleep(thread_func_args->wait_to_obtain_ms);
+    usleep(thread_func_args->wait_to_obtain_ms*1000);
     int rc = pthread_mutex_lock(thread_func_args->lock);
     
     //if error, return the data for joiner to free memory
@@ -28,7 +28,7 @@ void* threadfunc(void* thread_param)
     }
     
     //Got the lock, wait til release
-    usleep(thread_func_args->wait_to_release_ms);
+    usleep(thread_func_args->wait_to_release_ms*1000);
     rc = pthread_mutex_unlock(thread_func_args->lock);
     
     //if error, return the data for joiner to free memory
