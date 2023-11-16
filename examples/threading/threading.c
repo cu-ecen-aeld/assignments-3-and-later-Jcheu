@@ -62,7 +62,7 @@ bool start_thread_obtaining_mutex(pthread_t *thread, pthread_mutex_t *mutex,int 
      
     int rc = pthread_create(thread, NULL, threadfunc, (void*) threadData);
     
-    //If couldn't make thread, print error, free memory
+    //If couldn't make thread, print error
     if(rc != 0)
     {
     	ERROR_LOG("Failed to create thread error=%d", rc);
