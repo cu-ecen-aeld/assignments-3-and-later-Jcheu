@@ -3,6 +3,7 @@ ifdef CROSS_COMPILE
 	compileOption=$(CROSS_COMPILE)gcc
 else
 	compileOption=gcc
+endif
 
 all: writer
 
