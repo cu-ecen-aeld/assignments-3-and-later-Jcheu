@@ -1,7 +1,9 @@
+CC=$(CROSS_COMPILE)gcc
+
 all: writer
 
 writer:
-	$(CROSS_COMPILE)gcc writer.c -o writer
+	$(CC) writer.c -o writer
 	
 clean:
 	rm -f writer
