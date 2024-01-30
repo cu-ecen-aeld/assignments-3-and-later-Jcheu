@@ -83,6 +83,7 @@ int main(int argc, char *argv[])
 		printf("Failed to open socket %d, %s", errno, strerror(errno));
 		return -1;
 	}
+	setsockopt(serverFD, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int));
 	
 	//Bind Socket
 	struct addrinfo hints = {0};
