@@ -41,12 +41,12 @@ int main(int argc, char *argv[])
 {
 	openlog("aesdsocket", LOG_PID,LOG_USER);
 	
-	//int daemonFlag = 0;
+	int daemonFlag = 0;
 	char opt = getopt(argc, argv, "d");
 	if(opt == 'd')
 	{
 		printf("Daemon flag true\n");
-		//daemonFlag = 1;
+		daemonFlag = 1;
 	}
 
 	struct sigaction signalAction = {0};
@@ -98,18 +98,45 @@ int main(int argc, char *argv[])
 	}
 	if(bind(serverFD, result->ai_addr, result->ai_addrlen) != 0 )
 	{
-		printf("Failed to bind socket %d, %s", errno, strerror(errno));
+		printf("Failed to bind socket %d, %s\n", errno, strerror(errno));
 		return -1;
 	}
+	
+	freeaddrinfo(result);
 	
 	//Listen up to 1 connection
 	if(listen(serverFD, 1) != 0)
 	{
-		printf("Failed to listen socket %d, %s", errno, strerror(errno));
+		printf("Failed to listen socket %d, %s\n", errno, strerror(errno));
 		return -1;
 	}
 	
-	syslog(LOG_INFO, "Listening for connections....");
+	if(daemonFlag)
+	{
+		pid_t pid = fork();
+    
+		//If error on fork
+		if(pid == -1)
+		{
+			syslog(LOG_ERR, "fork failed");
+			return -1;
+		}
+		
+		// parent exit
+		if (pid > 0) 
+		{
+			return 0;
+		}
+		
+		//Child
+		umask(0);
+		setsid();
+		chdir("/");
+	        close(STDIN_FILENO);
+		close(STDOUT_FILENO);
+		close(STDERR_FILENO);
+	}
+	
 	
 	serverListening = 1;
 	int clientFD;
@@ -117,11 +144,13 @@ int main(int argc, char *argv[])
 	socklen_t clientAddrLen = sizeof(clientAddr);
 	while(serverListening != 0)
 	{
+		syslog(LOG_INFO, "Listening for connections....");
+	
 		//Accept connection
 		clientFD = accept(serverFD, (struct sockaddr*)&clientAddr, &clientAddrLen);
 		if(clientFD < 0 )
 		{
-			printf("Failed to accept client %d, %s\n", errno, strerror(errno));
+			//printf("Failed to accept client %d, %s\n", errno, strerror(errno));
 			return -1;
 		}
 		syslog(LOG_INFO, "Accepted connection from %s", inet_ntoa(clientAddr.sin_addr));
@@ -130,7 +159,7 @@ int main(int argc, char *argv[])
 		FILE * outFile = fopen(OUT_FILE, "a+");
 		if(outFile == NULL)
 		{
-			printf("Failed to open out file %d, %s", errno, strerror(errno));
+			//printf("Failed to open out file %d, %s", errno, strerror(errno));
 			return -2;
 		}
 		
@@ -141,12 +170,12 @@ int main(int argc, char *argv[])
 		{
 			numBytesRecv = recv(clientFD, buffer, sizeof(buffer), 0);
 			fwrite(buffer, 1, numBytesRecv, outFile);
-			printf("Writing %ld bytes: %s to file", numBytesRecv, buffer);
+			//printf("Writing %ld bytes: %s to file", numBytesRecv, buffer);
 			
 			if(strchr(buffer, '\n') != NULL)
 			{
 				gotNewLine = 1;
-				printf("Got End of packet\n");
+				//printf("Got End of packet\n");
 			}
 		}
 		
@@ -161,16 +190,15 @@ int main(int argc, char *argv[])
 				//perror("SendSocket");
 				return -1;
 			}
-			printf("Sending %ld %ld bytes: %s\n", numSent, strlen(buffer), buffer);
+			//printf("Sending %ld %ld bytes: %s\n", numSent, strlen(buffer), buffer);
 		}
 		fclose(outFile);
-		syslog(LOG_INFO, "Closed connection from %s", inet_ntoa(clientAddr.sin_addr));
 		close(clientFD);
+		syslog(LOG_INFO, "Closed connection from %s", inet_ntoa(clientAddr.sin_addr));
 	}
 	
 	//clean up
-	freeaddrinfo(result);
-	closelog();
 	close(serverFD);
+	closelog();
 	return 0;
 }
